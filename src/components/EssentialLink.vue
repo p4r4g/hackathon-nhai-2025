@@ -1,14 +1,13 @@
 <template>
   <q-item
     clickable
-    tag="a"
-    target="_blank"
-    :href="props.link"
+    :tag="props.handler ? 'div' : props.isExternal ? 'a' : 'router-link'"
+    :target="props.isExternal ? '_blank' : '_self'"
+    :href="props.isExternal ? props.link : undefined"
+    :to="!props.isExternal ? props.link : undefined"
+    @click="props.handler ? props.handler() : null"
   >
-    <q-item-section
-      v-if="props.icon"
-      avatar
-    >
+    <q-item-section v-if="props.icon" avatar>
       <q-icon :name="props.icon" />
     </q-item-section>
 
@@ -23,22 +22,30 @@
 const props = defineProps({
   title: {
     type: String,
-    required: true
+    required: true,
   },
 
   caption: {
     type: String,
-    default: ''
+    default: '',
   },
 
   link: {
     type: String,
-    default: '#'
+    default: '#',
   },
 
   icon: {
     type: String,
-    default: ''
-  }
+    default: '',
+  },
+  isExternal: {
+    type: Boolean,
+    default: false,
+  },
+  handler: {
+    type: Function,
+    default: null,
+  },
 })
 </script>

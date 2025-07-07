@@ -30,6 +30,9 @@ export default {
       blinkingDotLayer: null,
       blinkingDotFeature: null,
       blinkingInterval: null,
+      polylineVectorLayer: null, // New: Layer for all polylines
+      polylineVectorSource: null, // New: Source for all polylines
+      userInteractedWithZoom: false, // New: Track if user has manually zoomed
     }
   },
   mounted() {
@@ -54,42 +57,99 @@ export default {
         target: this.$refs.mapContainer,
         layers: [tileLayer],
         view: new View({
-          center: [0, 0], // Initial center, will be adjusted by fit
-          zoom: 2, // Initial zoom level
+          center: fromLonLat([78.9629, 20.5937]), // Center of India
+          zoom: 5, // Initial zoom level for India
         }),
       })
 
+      // Initialize a single vector source and layer for all polylines
+      this.polylineVectorSource = new VectorSource()
+      this.polylineVectorLayer = new VectorLayer({
+        source: this.polylineVectorSource,
+        style: (feature) => {
+          // Define a style function to apply different colors based on feature properties or index
+          const colors = ['blue', 'red', 'green', 'purple', 'orange', 'brown', 'pink', 'cyan']
+          const index = feature.get('index') || 0 // Get index from feature properties
+          return new Style({
+            stroke: new Stroke({
+              color: colors[index % colors.length],
+              width: 3,
+              opacity: 1,
+            }),
+          })
+        },
+      })
+      this.map.addLayer(this.polylineVectorLayer)
+
       this.updatePolylines()
+      this.initBlinkingDot() // Initialize blinking dot here
+
+      // Add a listener for zoom changes
+      this.map.getView().on('change:resolution', () => {
+        this.userInteractedWithZoom = true
+      })
+    },
+    initBlinkingDot() {
+      if (!this.map || this.blinkingDotFeature) return // Only initialize once
+
+      this.blinkingDotFeature = new Feature({
+        geometry: new Point([0, 0]), // Initial dummy coordinate
+      })
+
+      const dotStyle = new Style({
+        image: new Circle({
+          radius: 15,
+          fill: new Fill({ color: 'rgba(255, 0, 0, 1)' }),
+          stroke: new Stroke({ color: 'white', width: 3 }),
+        }),
+      })
+
+      this.blinkingDotLayer = new VectorLayer({
+        source: new VectorSource({
+          features: [this.blinkingDotFeature],
+        }),
+        style: dotStyle,
+      })
+      this.map.addLayer(this.blinkingDotLayer)
+
+      let opacity = 1
+      let increasing = false
+      this.blinkingInterval = setInterval(() => {
+        if (increasing) {
+          opacity += 0.1
+          if (opacity >= 1) {
+            opacity = 1
+            increasing = false
+          }
+        } else {
+          opacity -= 0.1
+          if (opacity <= 0.2) {
+            opacity = 0.2
+            increasing = true
+          }
+        }
+        dotStyle.getImage().getFill().setColor(`rgba(255, 0, 0, ${opacity})`)
+        this.blinkingDotLayer.changed()
+      }, 150)
     },
     updatePolylines() {
       if (!this.map) return
 
-      // Remove existing vector layers
-      this.map
-        .getLayers()
-        .getArray()
-        .filter((layer) => layer instanceof VectorLayer)
-        .forEach((layer) => {
-          if (layer !== this.blinkingDotLayer) {
-            // Don't remove the blinking dot layer
-            this.map.removeLayer(layer)
-          }
-        })
-
-      // Remove existing blinking dot layer if it exists
-      if (this.blinkingDotLayer) {
-        this.map.removeLayer(this.blinkingDotLayer)
-        this.blinkingDotLayer = null
-      }
-      if (this.blinkingInterval) {
-        clearInterval(this.blinkingInterval)
-        this.blinkingInterval = null
-      }
+      // Clear all features from the single polyline vector source
+      this.polylineVectorSource.clear()
 
       const allFeatures = []
-      const colors = ['blue', 'red', 'green', 'purple', 'orange', 'brown', 'pink', 'cyan'] // Colors for 8 lanes
 
       if (!this.polylines || this.polylines.length === 0) {
+        // If no polylines, hide the dot and reset zoom to India
+        if (this.blinkingDotFeature) {
+          this.blinkingDotFeature.getGeometry().setCoordinates([0, 0]) // Move off-screen or to a default
+          this.blinkingDotLayer.changed()
+        }
+        // Reset to India view if no polylines are available
+        this.map.getView().setCenter(fromLonLat([78.9629, 20.5937]))
+        this.map.getView().setZoom(5)
+        this.userInteractedWithZoom = false // Reset flag
         return
       }
 
@@ -98,76 +158,23 @@ export default {
           const polylineFeature = new Feature({
             geometry: new LineString(polylineCoords.map((coord) => fromLonLat(coord))),
           })
+          polylineFeature.set('index', index) // Set index for styling
           allFeatures.push(polylineFeature)
-
-          const vectorSource = new VectorSource({
-            features: [polylineFeature],
-          })
-
-          const vectorLayer = new VectorLayer({
-            source: vectorSource,
-            style: new Style({
-              stroke: new Stroke({
-                color: colors[index % colors.length], // Assign a color
-                width: 3,
-                opacity: 1,
-              }),
-            }),
-          })
-          this.map.addLayer(vectorLayer)
         }
       })
+      this.polylineVectorSource.addFeatures(allFeatures)
 
-      if (allFeatures.length > 0 && this.polylines.length > 0) {
-        // Get the last coordinate of the L1 lane (polylines[0])
-        const l1Polyline = this.polylines[0]
-        if (l1Polyline && l1Polyline.length > 0) {
-          const lastCoord = l1Polyline[l1Polyline.length - 1]
-          const transformedCoord = fromLonLat(lastCoord)
-
-          this.blinkingDotFeature = new Feature({
-            geometry: new Point(transformedCoord),
-          })
-
-          const dotStyle = new Style({
-            image: new Circle({
-              radius: 12, // Increased radius for prominence
-              fill: new Fill({ color: 'rgba(255, 255, 0, 1)' }), // Yellow dot for contrast
-              stroke: new Stroke({ color: 'black', width: 3 }), // Black stroke for better contrast
-            }),
-          })
-
-          this.blinkingDotLayer = new VectorLayer({
-            source: new VectorSource({
-              features: [this.blinkingDotFeature],
-            }),
-            style: dotStyle,
-          })
-
-          this.map.addLayer(this.blinkingDotLayer)
-
-          // Start blinking animation
-          let opacity = 1
-          let increasing = false
-          this.blinkingInterval = setInterval(() => {
-            if (increasing) {
-              opacity += 0.2 // Faster opacity change
-              if (opacity >= 1) {
-                opacity = 1
-                increasing = false
-              }
-            } else {
-              opacity -= 0.2 // Faster opacity change
-              if (opacity <= 0.1) {
-                // Lower minimum opacity for more prominent blink
-                opacity = 0.1
-                increasing = true
-              }
-            }
-            dotStyle.getImage().getFill().setColor(`rgba(255, 255, 0, ${opacity})`) // Yellow color
-            this.blinkingDotLayer.changed() // Important to re-render the layer
-          }, 100) // Blinking speed remains the same, but opacity change is faster
-        }
+      // Update blinking dot position
+      const l1Polyline = this.polylines[0] // L1 lane is the first polyline
+      if (l1Polyline && l1Polyline.length > 0 && this.blinkingDotFeature) {
+        const lastCoord = l1Polyline[l1Polyline.length - 1]
+        const transformedCoord = fromLonLat(lastCoord)
+        // console.log('Blinking dot position:', transformedCoord, l1Polyline.length, l1Polyline)
+        this.blinkingDotFeature.getGeometry().setCoordinates(transformedCoord)
+        this.blinkingDotLayer.changed()
+      } else if (this.blinkingDotFeature) {
+        // this.blinkingDotFeature.getGeometry().setCoordinates([0, 0]) // Hide if L1 is empty
+        // this.blinkingDotLayer.changed()
       }
 
       if (allFeatures.length > 0) {
@@ -179,10 +186,13 @@ export default {
           extent[3] = Math.max(extent[3], feature.getGeometry().getExtent()[3])
         })
 
-        this.map.getView().fit(extent, {
-          padding: [50, 50, 50, 50],
-          duration: 1000,
-        })
+        // Only fit to extent if the user hasn't manually interacted with the zoom
+        if (!this.userInteractedWithZoom) {
+          this.map.getView().fit(extent, {
+            padding: [300, 300, 300, 300], // Increased padding to zoom out further
+            duration: 1000,
+          })
+        }
       }
     },
   },
@@ -193,6 +203,21 @@ export default {
     if (this.map) {
       this.map.setTarget(undefined)
       this.map = null
+    }
+    if (this.polylineVectorSource) {
+      this.polylineVectorSource.clear()
+      this.polylineVectorSource = null
+    }
+    if (this.polylineVectorLayer) {
+      this.map.removeLayer(this.polylineVectorLayer)
+      this.polylineVectorLayer = null
+    }
+    if (this.blinkingDotLayer) {
+      this.map.removeLayer(this.blinkingDotLayer)
+      this.blinkingDotLayer = null
+    }
+    if (this.blinkingDotFeature) {
+      this.blinkingDotFeature = null
     }
   },
 }
