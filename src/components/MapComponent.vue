@@ -57,6 +57,7 @@ export default {
       userInteractedWithZoom: false, // New: Track if user has manually zoomed
       popup: null, // OpenLayers Overlay for the popup
       popupContent: '', // Content to display in the popup
+      isPopupOpen: false, // Track popup visibility
     }
   },
   mounted() {
@@ -206,7 +207,9 @@ export default {
           const transformedCoord = fromLonLat(lastCoord)
           this.blinkingDotFeature.getGeometry().setCoordinates(transformedCoord)
           this.blinkingDotLayer.changed()
-          this.mapView.setCenter(transformedCoord) // Center the map on the blinking dot
+          if (this.isPopupOpen === false) {
+            this.mapView.setCenter(transformedCoord) // Center the map on the blinking dot
+          }
         }
       } // Added missing closing brace for the if statement on line 208
 
@@ -234,6 +237,7 @@ export default {
       }
     },
     handleMapClick(event) {
+      this.userInteractedWithZoom = true // Disable auto-centering on click
       let featureFound = false
       this.map.forEachFeatureAtPixel(event.pixel, (feature) => {
         const data = feature.get('data')
@@ -276,6 +280,8 @@ export default {
           }
           this.popupContent = content
           this.popup.setPosition(event.coordinate)
+          this.isPopupOpen = true // Set popup open flag
+          console.log('Popup opened. isPopupOpen:', this.isPopupOpen)
           console.log('Popup position set to:', event.coordinate)
           if (this.$refs.popup) {
             console.log('Popup element display style:', this.$refs.popup.style.display)
@@ -286,12 +292,18 @@ export default {
       if (!featureFound) {
         // If no feature was clicked, close the popup
         this.popup.setPosition(undefined)
-        console.log('No feature clicked, popup position set to undefined.')
+        this.isPopupOpen = false // Set popup closed flag
+        console.log(
+          'No feature clicked, popup position set to undefined. isPopupOpen:',
+          this.isPopupOpen,
+        )
       }
     },
     closePopup() {
       this.popup.setPosition(undefined)
-      console.log('Popup closed by user.')
+      console.log('Popup closed by user. isPopupOpen:', this.isPopupOpen)
+      this.userInteractedWithZoom = false // Re-enable auto-centering when popup is closed
+      this.isPopupOpen = false // Set popup closed flag
       return false // Prevent default link behavior
     },
     getPolylineStyle(feature) {
