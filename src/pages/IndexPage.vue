@@ -1,6 +1,13 @@
 <template>
   <q-page class="flex flex-center" style="width: 100vw; height: 100vh">
-    <MapComponent v-if="polylineCoordinates.length > 0" :polylines="polylineCoordinates" />
+    <MapComponent
+      v-if="polylineCoordinates.length > 0"
+      :polylines="polylineCoordinates"
+      :roughnessThreshold="roughnessLimit"
+      :rutDepthThreshold="rutDepthLimit"
+      :crackingThreshold="crackingLimit"
+      :ravellingThreshold="ravellingLimit"
+    />
   </q-page>
 </template>
 
@@ -13,10 +20,18 @@ import { useMqttStore } from 'src/stores/mqtt-store'
 const polylineCoordinates = ref([])
 const mqttStore = useMqttStore()
 
+// Define default thresholds, these can be made configurable by the user later
+const roughnessLimit = ref(2400)
+const rutDepthLimit = ref(5)
+const crackingLimit = ref(5)
+const ravellingLimit = ref(1)
+
 watch(
   () => mqttStore.polylineData,
   (newData) => {
     if (newData) {
+      // The newData is already structured as an array of arrays of segments
+      // No need to filter based on lane.coords here, as lane itself is an array of segments
       polylineCoordinates.value = newData
     }
   },

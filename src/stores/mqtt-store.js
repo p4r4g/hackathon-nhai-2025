@@ -6,13 +6,14 @@ export const useMqttStore = defineStore('mqtt', {
     // L1, L2, L3, L4, R1, R2, R3, R4
     polylineData: Array(8)
       .fill(null)
-      .map(() => []),
+      .map(() => []), // Initialize as an array of empty arrays for segments
   }),
   actions: {
     addMqttData(data) {
       const laneKeys = [
         {
           id: 0,
+          prefix: 'L1',
           startLat: 'L1StartLatitude',
           startLon: 'L1StartLongitude',
           endLat: 'L1EndLatitude',
@@ -20,6 +21,7 @@ export const useMqttStore = defineStore('mqtt', {
         },
         {
           id: 1,
+          prefix: 'L2',
           startLat: 'L2StartLatitude',
           startLon: 'L2StartLongitude',
           endLat: 'L2EndLatitude',
@@ -27,6 +29,7 @@ export const useMqttStore = defineStore('mqtt', {
         },
         {
           id: 2,
+          prefix: 'L3',
           startLat: 'L3StartLatitude',
           startLon: 'L3StartLongitude',
           endLat: 'L3EndLatitude',
@@ -34,6 +37,7 @@ export const useMqttStore = defineStore('mqtt', {
         },
         {
           id: 3,
+          prefix: 'L4',
           startLat: 'L4StartLatitude',
           startLon: 'L4StartLongitude',
           endLat: 'L4EndLatitude',
@@ -41,6 +45,7 @@ export const useMqttStore = defineStore('mqtt', {
         },
         {
           id: 4,
+          prefix: 'R1',
           startLat: 'R1StartLatitude',
           startLon: 'R1StartLongitude',
           endLat: 'R1EndLatitude',
@@ -48,6 +53,7 @@ export const useMqttStore = defineStore('mqtt', {
         },
         {
           id: 5,
+          prefix: 'R2',
           startLat: 'R2StartLatitude',
           startLon: 'R2StartLongitude',
           endLat: 'R2EndLatitude',
@@ -55,6 +61,7 @@ export const useMqttStore = defineStore('mqtt', {
         },
         {
           id: 6,
+          prefix: 'R3',
           startLat: 'R3StartLatitude',
           startLon: 'R3StartLongitude',
           endLat: 'R3EndLatitude',
@@ -62,6 +69,7 @@ export const useMqttStore = defineStore('mqtt', {
         },
         {
           id: 7,
+          prefix: 'R4',
           startLat: 'R4StartLatitude',
           startLon: 'R4StartLongitude',
           endLat: 'R4EndLatitude',
@@ -75,13 +83,28 @@ export const useMqttStore = defineStore('mqtt', {
         const endLat = data[lane.endLat]
         const endLon = data[lane.endLon]
 
+        // Extract lane-specific data using the correct prefix
+        const roughnessBI = data[`${lane.prefix}LaneRoughnessBI(inmm/km)`]
+        const rutDepth = data[`${lane.prefix}RutDepth(inmm)`]
+        const crackArea = data[`${lane.prefix}CrackArea(in%area)`]
+        const ravellingArea = data[`${lane.prefix}Area(%area)`]
+
         if (startLat && startLon && endLat && endLon) {
-          // If this is the first segment for this lane, add both start and end
-          if (this.polylineData[lane.id].length === 0) {
-            this.polylineData[lane.id].push([startLon, startLat])
+          // Create a segment object with its coordinates and data
+          const segment = {
+            coords: [
+              [startLon, startLat],
+              [endLon, endLat],
+            ],
+            data: {
+              roughnessBI: roughnessBI,
+              rutDepth: rutDepth,
+              crackArea: crackArea,
+              ravellingArea: ravellingArea,
+            },
           }
-          // Always add the end point
-          this.polylineData[lane.id].push([endLon, endLat])
+          // Add the segment to the respective lane's array
+          this.polylineData[lane.id].push(segment)
         }
       })
     },

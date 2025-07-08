@@ -21,7 +21,23 @@ export default {
     polylines: {
       type: Array,
       required: true,
-      // Example: [[[lon1, lat1], [lon2, lat2]], [[lon3, lat3], [lon4, lat4]]]
+      // Example: [[{ coords: [[lon1, lat1], [lon2, lat2]], data: {...} }, { coords: [[lon2, lat2], [lon3, lat3]], data: {...} }]]
+    },
+    roughnessThreshold: {
+      type: Number,
+      default: 2400, // Default value from the provided data
+    },
+    rutDepthThreshold: {
+      type: Number,
+      default: 5, // Default value from the provided data
+    },
+    crackingThreshold: {
+      type: Number,
+      default: 5, // Default value from the provided data
+    },
+    ravellingThreshold: {
+      type: Number,
+      default: 1, // Default value from the provided data
     },
   },
   data() {
@@ -67,12 +83,31 @@ export default {
       this.polylineVectorLayer = new VectorLayer({
         source: this.polylineVectorSource,
         style: (feature) => {
-          // Define a style function to apply different colors based on feature properties or index
-          const colors = ['blue', 'red', 'green', 'purple', 'orange', 'brown', 'pink', 'cyan']
-          const index = feature.get('index') || 0 // Get index from feature properties
+          const laneData = feature.get('data')
+          let color = 'green' // Default to green (below threshold)
+
+          if (laneData) {
+            // Check roughness
+            if (laneData.roughnessBI > this.roughnessThreshold) {
+              color = 'orange'
+            }
+            // Check rut depth
+            if (laneData.rutDepth > this.rutDepthThreshold) {
+              color = 'orange'
+            }
+            // Check cracking
+            if (laneData.crackArea > this.crackingThreshold) {
+              color = 'orange'
+            }
+            // Check ravelling
+            if (laneData.ravellingArea > this.ravellingThreshold) {
+              color = 'orange'
+            }
+          }
+
           return new Style({
             stroke: new Stroke({
-              color: colors[index % colors.length],
+              color: color,
               width: 3,
               opacity: 1,
             }),
@@ -153,29 +188,32 @@ export default {
         return
       }
 
-      this.polylines.forEach((polylineCoords, index) => {
-        if (polylineCoords.length > 0) {
-          const polylineFeature = new Feature({
-            geometry: new LineString(polylineCoords.map((coord) => fromLonLat(coord))),
-          })
-          polylineFeature.set('index', index) // Set index for styling
-          allFeatures.push(polylineFeature)
-        }
+      this.polylines.forEach((laneSegments, laneIndex) => {
+        laneSegments.forEach((segment, segmentIndex) => {
+          if (segment.coords && segment.coords.length > 0) {
+            const polylineFeature = new Feature({
+              geometry: new LineString(segment.coords.map((coord) => fromLonLat(coord))),
+            })
+            polylineFeature.set('laneIndex', laneIndex) // Set lane index for potential future use
+            polylineFeature.set('segmentIndex', segmentIndex) // Set segment index for potential future use
+            polylineFeature.set('data', segment.data) // Set data for styling
+            allFeatures.push(polylineFeature)
+          }
+        })
       })
       this.polylineVectorSource.addFeatures(allFeatures)
 
-      // Update blinking dot position
-      const l1Polyline = this.polylines[0] // L1 lane is the first polyline
-      if (l1Polyline && l1Polyline.length > 0 && this.blinkingDotFeature) {
-        const lastCoord = l1Polyline[l1Polyline.length - 1]
-        const transformedCoord = fromLonLat(lastCoord)
-        // console.log('Blinking dot position:', transformedCoord, l1Polyline.length, l1Polyline)
-        this.blinkingDotFeature.getGeometry().setCoordinates(transformedCoord)
-        this.blinkingDotLayer.changed()
-      } else if (this.blinkingDotFeature) {
-        // this.blinkingDotFeature.getGeometry().setCoordinates([0, 0]) // Hide if L1 is empty
-        // this.blinkingDotLayer.changed()
-      }
+      // Update blinking dot position based on the last segment of the first lane
+      const l1LaneSegments = this.polylines[0]
+      if (l1LaneSegments && l1LaneSegments.length > 0 && this.blinkingDotFeature) {
+        const lastSegment = l1LaneSegments[l1LaneSegments.length - 1]
+        if (lastSegment.coords && lastSegment.coords.length > 1) {
+          const lastCoord = lastSegment.coords[lastSegment.coords.length - 1]
+          const transformedCoord = fromLonLat(lastCoord)
+          this.blinkingDotFeature.getGeometry().setCoordinates(transformedCoord)
+          this.blinkingDotLayer.changed()
+        }
+      } // Added missing closing brace for the if statement on line 208
 
       if (allFeatures.length > 0) {
         const extent = allFeatures[0].getGeometry().getExtent()
