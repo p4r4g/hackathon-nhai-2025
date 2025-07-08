@@ -1,5 +1,55 @@
 <template>
-  <q-page class="flex flex-center" style="width: 100vw; height: 100vh">
+  <q-page class="flex" style="width: 100vw; height: 100vh">
+    <div class="q-pa-md flex" style="flex-wrap: wrap; gap: 16px">
+      <!-- Overall Statistics Box -->
+      <q-card class="my-card" style="min-width: 280px; flex-grow: 1">
+        <q-card-section>
+          <div class="text-h6">Overall Statistics</div>
+          <div class="text-subtitle2">
+            Total Segments Received: {{ mqttStore.getTotalSegmentsReceived }}
+          </div>
+        </q-card-section>
+      </q-card>
+
+      <!-- Left Lanes (L1-L4) Box -->
+      <q-card class="my-card" style="min-width: 280px; flex-grow: 1">
+        <q-card-section>
+          <div class="text-h6">Left Lanes (L1-L4)</div>
+          <div v-for="(lane, index) in leftLaneStats" :key="index" class="q-mb-sm">
+            <div class="text-subtitle2">
+              Lane {{ lanePrefixes[index] }} {{ lane.percentageWithinThreshold.toFixed(2) }}% ({{
+                lane.segmentsWithinThreshold
+              }}/{{ lane.totalSegments }})
+            </div>
+            <q-linear-progress
+              :value="lane.percentageWithinThreshold / 100"
+              :color="getProgressBarColor(lane.percentageWithinThreshold)"
+              track-color="grey-3"
+              class="q-mt-xs"
+            />
+          </div>
+        </q-card-section>
+      </q-card>
+
+      <!-- Right Lanes (R1-R4) Box -->
+      <q-card class="my-card" style="min-width: 280px; flex-grow: 1">
+        <q-card-section>
+          <div class="text-h6">Right Lanes (R1-R4)</div>
+          <div v-for="(lane, index) in rightLaneStats" :key="index" class="q-mb-sm">
+            <div class="text-subtitle2">
+              Lane {{ lanePrefixes[index + 4] }} {{ lane.percentageWithinThreshold.toFixed(2) }}%
+              ({{ lane.segmentsWithinThreshold }}/{{ lane.totalSegments }})
+            </div>
+            <q-linear-progress
+              :value="lane.percentageWithinThreshold / 100"
+              :color="getProgressBarColor(lane.percentageWithinThreshold)"
+              track-color="grey-3"
+              class="q-mt-xs"
+            />
+          </div>
+        </q-card-section>
+      </q-card>
+    </div>
     <MapComponent
       v-if="polylineCoordinates.length > 0"
       :polylines="polylineCoordinates"
@@ -13,7 +63,7 @@
 
 <script setup>
 import MapComponent from 'src/components/MapComponent.vue'
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue' // Import computed
 import mqtt from 'mqtt'
 import { useMqttStore } from 'src/stores/mqtt-store'
 
@@ -25,6 +75,27 @@ const roughnessLimit = ref(2400)
 const rutDepthLimit = ref(5)
 const crackingLimit = ref(5)
 const ravellingLimit = ref(1)
+
+const lanePrefixes = ['L1', 'L2', 'L3', 'L4', 'R1', 'R2', 'R3', 'R4']
+
+const getProgressBarColor = (percentage) => {
+  if (percentage > 80) {
+    return 'green-6'
+  } else if (percentage >= 60) {
+    return 'yellow-8'
+  } else {
+    return 'red-6'
+  }
+}
+
+// Computed properties for left and right lane stats
+const leftLaneStats = computed(() => {
+  return mqttStore.getLaneStats.slice(0, 4) // L1 to L4
+})
+
+const rightLaneStats = computed(() => {
+  return mqttStore.getLaneStats.slice(4, 8) // R1 to R4
+})
 
 watch(
   () => mqttStore.polylineData,
@@ -66,7 +137,12 @@ onMounted(() => {
     // console.log(`Received message from topic ${topic}: ${message.toString()}`)
     try {
       const parsedData = JSON.parse(message.toString())
-      mqttStore.addMqttData(parsedData)
+      mqttStore.addMqttData(parsedData, {
+        roughnessThreshold: roughnessLimit.value,
+        rutDepthThreshold: rutDepthLimit.value,
+        crackingThreshold: crackingLimit.value,
+        ravellingThreshold: ravellingLimit.value,
+      })
     } catch (e) {
       console.error('Failed to parse MQTT message:', e)
     }

@@ -7,9 +7,18 @@ export const useMqttStore = defineStore('mqtt', {
     polylineData: Array(8)
       .fill(null)
       .map(() => []), // Initialize as an array of empty arrays for segments
+    totalSegmentsReceived: 0,
+    laneStats: Array(8)
+      .fill(null)
+      .map(() => ({
+        totalSegments: 0,
+        segmentsWithinThreshold: 0,
+        percentageWithinThreshold: 0,
+      })),
   }),
   actions: {
-    addMqttData(data) {
+    addMqttData(data, thresholds) {
+      this.totalSegmentsReceived++ // Increment total messages received
       const laneKeys = [
         {
           id: 0,
@@ -105,11 +114,34 @@ export const useMqttStore = defineStore('mqtt', {
           }
           // Add the segment to the respective lane's array
           this.polylineData[lane.id].push(segment)
+
+          // Update lane statistics
+          this.laneStats[lane.id].totalSegments++
+          let withinThreshold = true
+          if (
+            segment.data.roughnessBI > thresholds.roughnessThreshold ||
+            segment.data.rutDepth > thresholds.rutDepthThreshold ||
+            segment.data.crackArea > thresholds.crackingThreshold ||
+            segment.data.ravellingArea > thresholds.ravellingThreshold
+          ) {
+            withinThreshold = false
+          }
+
+          if (withinThreshold) {
+            this.laneStats[lane.id].segmentsWithinThreshold++
+          }
+
+          this.laneStats[lane.id].percentageWithinThreshold =
+            (this.laneStats[lane.id].segmentsWithinThreshold /
+              this.laneStats[lane.id].totalSegments) *
+            100
         }
       })
     },
   },
   getters: {
     getPolylineCoordinates: (state) => state.polylineData,
+    getLaneStats: (state) => state.laneStats,
+    getTotalSegmentsReceived: (state) => state.totalSegmentsReceived,
   },
 })
