@@ -53,33 +53,32 @@
     <MapComponent
       v-if="polylineCoordinates.length > 0"
       :polylines="polylineCoordinates"
-      :roughnessThreshold="roughnessLimit"
-      :rutDepthThreshold="rutDepthLimit"
-      :crackingThreshold="crackingLimit"
-      :ravellingThreshold="ravellingLimit"
     />
   </q-page>
 </template>
 
 <script setup>
 import MapComponent from 'src/components/MapComponent.vue'
-import { ref, onMounted, onUnmounted, watch, computed } from 'vue' // Import computed
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import mqtt from 'mqtt'
 import { useMqttStore } from 'src/stores/mqtt-store'
+import { useThresholdStore } from 'src/stores/threshold-store' // Import threshold store
 
 const polylineCoordinates = ref([])
 const mqttStore = useMqttStore()
+const thresholdStore = useThresholdStore() // Initialize threshold store
 
-// Define default thresholds, these can be made configurable by the user later
-const roughnessLimit = ref(2400)
-const rutDepthLimit = ref(5)
-const crackingLimit = ref(5)
-const ravellingLimit = ref(1)
+// Remove local threshold refs, use store instead
+// const roughnessLimit = ref(2400)
+// const rutDepthLimit = ref(5)
+// const crackingLimit = ref(5)
+// const ravellingLimit = ref(1)
 
 const lanePrefixes = ['L1', 'L2', 'L3', 'L4', 'R1', 'R2', 'R3', 'R4']
 
 const getProgressBarColor = (percentage) => {
   if (percentage > 80) {
+  
     return 'green-6'
   } else if (percentage >= 60) {
     return 'yellow-8'
@@ -138,10 +137,10 @@ onMounted(() => {
     try {
       const parsedData = JSON.parse(message.toString())
       mqttStore.addMqttData(parsedData, {
-        roughnessThreshold: roughnessLimit.value,
-        rutDepthThreshold: rutDepthLimit.value,
-        crackingThreshold: crackingLimit.value,
-        ravellingThreshold: ravellingLimit.value,
+        roughnessThreshold: thresholdStore.roughnessThreshold,
+        rutDepthThreshold: thresholdStore.rutDepthThreshold,
+        crackingThreshold: thresholdStore.crackingThreshold,
+        ravellingThreshold: thresholdStore.ravellingThreshold,
       })
     } catch (e) {
       console.error('Failed to parse MQTT message:', e)

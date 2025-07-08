@@ -19,6 +19,7 @@ import Point from 'ol/geom/Point' // Import Point for the blinking dot
 import { Style, Stroke, Circle, Fill } from 'ol/style' // Import Circle and Fill for dot style
 import { fromLonLat } from 'ol/proj'
 import Overlay from 'ol/Overlay' // Import Overlay for popups
+import { useThresholdStore } from '../stores/threshold-store'
 
 export default {
   name: 'MapComponent',
@@ -26,24 +27,8 @@ export default {
     polylines: {
       type: Array,
       required: true,
-      // Example: [[{ coords: [[lon1, lat1], [lon2, lat2]], data: {...} }, { coords: [[lon2, lat2], [lon3, lat3]], data: {...} }]]
     },
-    roughnessThreshold: {
-      type: Number,
-      default: 2400, // Default value from the provided data
-    },
-    rutDepthThreshold: {
-      type: Number,
-      default: 5, // Default value from the provided data
-    },
-    crackingThreshold: {
-      type: Number,
-      default: 5, // Default value from the provided data
-    },
-    ravellingThreshold: {
-      type: Number,
-      default: 1, // Default value from the provided data
-    },
+    // Remove threshold props, use store instead
   },
   data() {
     return {
@@ -58,10 +43,27 @@ export default {
       popup: null, // OpenLayers Overlay for the popup
       popupContent: '', // Content to display in the popup
       isPopupOpen: false, // Track popup visibility
+      thresholdStore: null,
+      mapViewChangeListener: null, // Store reference to the change:resolution listener
     }
   },
   mounted() {
+    this.thresholdStore = useThresholdStore()
     this.initMap()
+  },
+  computed: {
+    roughnessThreshold() {
+      return this.thresholdStore?.roughnessThreshold ?? 2400
+    },
+    rutDepthThreshold() {
+      return this.thresholdStore?.rutDepthThreshold ?? 5
+    },
+    crackingThreshold() {
+      return this.thresholdStore?.crackingThreshold ?? 5
+    },
+    ravellingThreshold() {
+      return this.thresholdStore?.ravellingThreshold ?? 1
+    },
   },
   watch: {
     polylines: {
@@ -99,11 +101,12 @@ export default {
       this.initBlinkingDot() // Initialize blinking dot here
 
       // Add a listener for zoom changes
-      this.mapView.on('change:resolution', () => {
+      this.mapViewChangeListener = () => {
         this.userInteractedWithZoom = true
         // Force redraw by re-setting the style function
         this.polylineVectorLayer.setStyle((feature) => this.getPolylineStyle(feature))
-      })
+      }
+      this.mapView.on('change:resolution', this.mapViewChangeListener)
 
       // Add click event listener for feature info
       this.map.on('click', this.handleMapClick)
@@ -356,29 +359,47 @@ export default {
   beforeUnmount() {
     if (this.blinkingInterval) {
       clearInterval(this.blinkingInterval)
+      this.blinkingInterval = null
     }
     if (this.map) {
-      this.map.un('click', this.handleMapClick) // Remove click listener
-      this.map.removeOverlay(this.popup) // Remove popup overlay
-    }
-    if (this.mapView) {
-      this.mapView.un('change:resolution') // Remove resolution change listener
-      this.mapView = null
-    }
-    if (this.map) {
+      this.map.un('click', this.handleMapClick)
+      if (this.polylineVectorLayer) {
+        this.map.removeLayer(this.polylineVectorLayer)
+      }
+      if (this.blinkingDotLayer) {
+        this.map.removeLayer(this.blinkingDotLayer)
+      }
+      if (this.popup) {
+        this.map.removeOverlay(this.popup)
+        if (typeof this.popup.dispose === 'function') {
+          this.popup.dispose()
+        }
+        this.popup = null
+      }
       this.map.setTarget(undefined)
       this.map = null
+    }
+    if (this.mapView) {
+      if (this.mapViewChangeListener) {
+        this.mapView.un('change:resolution', this.mapViewChangeListener)
+        this.mapViewChangeListener = null
+      }
+      this.mapView = null
     }
     if (this.polylineVectorSource) {
       this.polylineVectorSource.clear()
       this.polylineVectorSource = null
     }
     if (this.polylineVectorLayer) {
-      this.map.removeLayer(this.polylineVectorLayer)
+      if (typeof this.polylineVectorLayer.dispose === 'function') {
+        this.polylineVectorLayer.dispose()
+      }
       this.polylineVectorLayer = null
     }
     if (this.blinkingDotLayer) {
-      this.map.removeLayer(this.blinkingDotLayer)
+      if (typeof this.blinkingDotLayer.dispose === 'function') {
+        this.blinkingDotLayer.dispose()
+      }
       this.blinkingDotLayer = null
     }
     if (this.blinkingDotFeature) {

@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   web:
     image: ghcr.io/p4r4g/nhai-hackthon-2025:latest

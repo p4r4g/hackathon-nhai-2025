@@ -32,40 +32,23 @@ import EssentialLink from 'components/EssentialLink.vue'
 
 const linksList = [
   {
+    title: 'Home',
+    caption: 'Dashboard',
+    icon: 'home',
+    link: '/',
+  },
+  {
+    title: 'Settings',
+    caption: 'Threshold Settings',
+    icon: 'settings',
+    link: '/settings',
+  },
+  {
     title: 'Github',
-    caption: 'github.com/quasarframework',
+    caption: 'Source Code',
     icon: 'code',
-    link: 'https://github.com/p4r4g/hackthon-nhai-2025',
-  },
-  {
-    title: 'Discord Chat Channel',
-    caption: 'chat.quasar.dev',
-    icon: 'chat',
-    link: 'https://chat.quasar.dev',
-  },
-  {
-    title: 'Forum',
-    caption: 'forum.quasar.dev',
-    icon: 'record_voice_over',
-    link: 'https://forum.quasar.dev',
-  },
-  {
-    title: 'Twitter',
-    caption: '@quasarframework',
-    icon: 'rss_feed',
-    link: 'https://twitter.quasar.dev',
-  },
-  {
-    title: 'Facebook',
-    caption: '@QuasarFramework',
-    icon: 'public',
-    link: 'https://facebook.quasar.dev',
-  },
-  {
-    title: 'Quasar Awesome',
-    caption: 'Community Quasar projects',
-    icon: 'favorite',
-    link: 'https://awesome.quasar.dev',
+    link: 'https://github.com/p4r4g/hackathon-nhai-2025',
+    isExternal: true,
   },
   {
     title: 'Start Small Sample',
