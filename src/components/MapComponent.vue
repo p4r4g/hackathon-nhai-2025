@@ -1,5 +1,9 @@
 <template>
   <div ref="mapContainer" class="map-container"></div>
+  <div ref="popup" class="ol-popup">
+    <a href="#" class="ol-popup-closer" @click.prevent="closePopup"></a>
+    <div v-html="popupContent"></div>
+  </div>
 </template>
 
 <script>
@@ -14,6 +18,7 @@ import LineString from 'ol/geom/LineString'
 import Point from 'ol/geom/Point' // Import Point for the blinking dot
 import { Style, Stroke, Circle, Fill } from 'ol/style' // Import Circle and Fill for dot style
 import { fromLonLat } from 'ol/proj'
+import Overlay from 'ol/Overlay' // Import Overlay for popups
 
 export default {
   name: 'MapComponent',
@@ -43,12 +48,15 @@ export default {
   data() {
     return {
       map: null,
+      mapView: null, // Add mapView to data
       blinkingDotLayer: null,
       blinkingDotFeature: null,
       blinkingInterval: null,
       polylineVectorLayer: null, // New: Layer for all polylines
       polylineVectorSource: null, // New: Source for all polylines
       userInteractedWithZoom: false, // New: Track if user has manually zoomed
+      popup: null, // OpenLayers Overlay for the popup
+      popupContent: '', // Content to display in the popup
     }
   },
   mounted() {
@@ -72,47 +80,17 @@ export default {
       this.map = new Map({
         target: this.$refs.mapContainer,
         layers: [tileLayer],
-        view: new View({
+        view: (this.mapView = new View({
           center: fromLonLat([78.9629, 20.5937]), // Center of India
           zoom: 5, // Initial zoom level for India
-        }),
+        })),
       })
 
       // Initialize a single vector source and layer for all polylines
       this.polylineVectorSource = new VectorSource()
       this.polylineVectorLayer = new VectorLayer({
         source: this.polylineVectorSource,
-        style: (feature) => {
-          const laneData = feature.get('data')
-          let color = 'green' // Default to green (below threshold)
-
-          if (laneData) {
-            // Check roughness
-            if (laneData.roughnessBI > this.roughnessThreshold) {
-              color = 'orange'
-            }
-            // Check rut depth
-            if (laneData.rutDepth > this.rutDepthThreshold) {
-              color = 'orange'
-            }
-            // Check cracking
-            if (laneData.crackArea > this.crackingThreshold) {
-              color = 'orange'
-            }
-            // Check ravelling
-            if (laneData.ravellingArea > this.ravellingThreshold) {
-              color = 'orange'
-            }
-          }
-
-          return new Style({
-            stroke: new Stroke({
-              color: color,
-              width: 3,
-              opacity: 1,
-            }),
-          })
-        },
+        style: (feature) => this.getPolylineStyle(feature),
       })
       this.map.addLayer(this.polylineVectorLayer)
 
@@ -120,9 +98,25 @@ export default {
       this.initBlinkingDot() // Initialize blinking dot here
 
       // Add a listener for zoom changes
-      this.map.getView().on('change:resolution', () => {
+      this.mapView.on('change:resolution', () => {
         this.userInteractedWithZoom = true
+        // Force redraw by re-setting the style function
+        this.polylineVectorLayer.setStyle((feature) => this.getPolylineStyle(feature))
       })
+
+      // Add click event listener for feature info
+      this.map.on('click', this.handleMapClick)
+
+      // Initialize popup overlay
+      this.popup = new Overlay({
+        element: this.$refs.popup,
+        autoPan: {
+          animation: {
+            duration: 250,
+          },
+        },
+      })
+      this.map.addOverlay(this.popup)
     },
     initBlinkingDot() {
       if (!this.map || this.blinkingDotFeature) return // Only initialize once
@@ -182,8 +176,8 @@ export default {
           this.blinkingDotLayer.changed()
         }
         // Reset to India view if no polylines are available
-        this.map.getView().setCenter(fromLonLat([78.9629, 20.5937]))
-        this.map.getView().setZoom(5)
+        this.mapView.setCenter(fromLonLat([78.9629, 20.5937]))
+        this.mapView.setZoom(5)
         this.userInteractedWithZoom = false // Reset flag
         return
       }
@@ -212,6 +206,7 @@ export default {
           const transformedCoord = fromLonLat(lastCoord)
           this.blinkingDotFeature.getGeometry().setCoordinates(transformedCoord)
           this.blinkingDotLayer.changed()
+          this.mapView.setCenter(transformedCoord) // Center the map on the blinking dot
         }
       } // Added missing closing brace for the if statement on line 208
 
@@ -226,17 +221,137 @@ export default {
 
         // Only fit to extent if the user hasn't manually interacted with the zoom
         if (!this.userInteractedWithZoom) {
-          this.map.getView().fit(extent, {
+          this.mapView.fit(extent, {
             padding: [300, 300, 300, 300], // Increased padding to zoom out further
             duration: 1000,
           })
+
+          // Ensure the zoom level does not go below 5
+          if (this.mapView.getZoom() < 5) {
+            this.mapView.setZoom(5)
+          }
         }
       }
+    },
+    handleMapClick(event) {
+      let featureFound = false
+      this.map.forEachFeatureAtPixel(event.pixel, (feature) => {
+        const data = feature.get('data')
+        if (data) {
+          featureFound = true
+          console.log('Clicked feature data:', data) // Log to validate
+          const laneIndex = feature.get('laneIndex')
+          const lanePrefixes = ['L1', 'L2', 'L3', 'L4', 'R1', 'R2', 'R3', 'R4']
+          const laneName = lanePrefixes[laneIndex] || 'Unknown Lane'
+
+          let content = `<b>Lane: ${laneName}</b><br><b>Segment Data:</b><br>`
+          const thresholdMap = {
+            roughnessBI: 'roughnessThreshold',
+            rutDepth: 'rutDepthThreshold',
+            crackArea: 'crackingThreshold',
+            ravellingArea: 'ravellingThreshold',
+          }
+
+          for (const key in data) {
+            let value = data[key]
+            const thresholdPropName = thresholdMap[key]
+            let threshold = thresholdPropName ? this[thresholdPropName] : undefined
+            let displayValue = value
+
+            console.log(
+              `Key: ${key}, Value: ${value}, Threshold: ${threshold}, Exceeds: ${value > threshold}`,
+            )
+
+            let lineContent = `${key}: ${displayValue}`
+            if (threshold !== undefined) {
+              lineContent += ` (Threshold: ${threshold})`
+            }
+
+            if (threshold !== undefined && value > threshold) {
+              content += `<span class="red-text">${lineContent}</span><br>`
+            } else {
+              content += `${lineContent}<br>`
+            }
+            console.log(`Current content for ${key}: ${content}`)
+          }
+          this.popupContent = content
+          this.popup.setPosition(event.coordinate)
+          console.log('Popup position set to:', event.coordinate)
+          if (this.$refs.popup) {
+            console.log('Popup element display style:', this.$refs.popup.style.display)
+          }
+        }
+      })
+
+      if (!featureFound) {
+        // If no feature was clicked, close the popup
+        this.popup.setPosition(undefined)
+        console.log('No feature clicked, popup position set to undefined.')
+      }
+    },
+    closePopup() {
+      this.popup.setPosition(undefined)
+      console.log('Popup closed by user.')
+      return false // Prevent default link behavior
+    },
+    getPolylineStyle(feature) {
+      console.log(
+        'getPolylineStyle called, current zoom:',
+        this.mapView ? this.mapView.getZoom() : 'N/A',
+      )
+      const laneData = feature.get('data')
+      let color = 'lightblue' // Default to green (below threshold)
+
+      if (laneData) {
+        // Check roughness
+        if (laneData.roughnessBI > this.roughnessThreshold) {
+          color = 'orange'
+        }
+        // Check rut depth
+        if (laneData.rutDepth > this.rutDepthThreshold) {
+          color = 'orange'
+        }
+        // Check cracking
+        if (laneData.crackArea > this.crackingThreshold) {
+          color = 'orange'
+        }
+        // Check ravelling
+        if (laneData.ravellingArea > this.ravellingThreshold) {
+          color = 'orange'
+        }
+      }
+
+      // Calculate width based on zoom level
+      const zoom = this.mapView ? this.mapView.getZoom() : 5 // Default zoom if not initialized
+      let width = 3 // Base width
+      if (zoom > 10) {
+        width = 15
+      } else if (zoom > 7) {
+        width = 10
+      } else {
+        width = 5
+      }
+
+      return new Style({
+        stroke: new Stroke({
+          color: color,
+          width: width,
+          opacity: 1,
+        }),
+      })
     },
   },
   beforeUnmount() {
     if (this.blinkingInterval) {
       clearInterval(this.blinkingInterval)
+    }
+    if (this.map) {
+      this.map.un('click', this.handleMapClick) // Remove click listener
+      this.map.removeOverlay(this.popup) // Remove popup overlay
+    }
+    if (this.mapView) {
+      this.mapView.un('change:resolution') // Remove resolution change listener
+      this.mapView = null
     }
     if (this.map) {
       this.map.setTarget(undefined)
@@ -266,5 +381,54 @@ export default {
   width: 100%;
   height: 100vh; /* Take 100% of viewport height */
   background: #f0f0f0;
+}
+
+.ol-popup {
+  position: absolute;
+  background-color: white;
+  -webkit-filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.2));
+  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.2));
+  padding: 15px;
+  border-radius: 10px;
+  border: 1px solid #cccccc;
+  bottom: 12px;
+  left: -50px;
+  min-width: 280px;
+}
+.ol-popup:after,
+.ol-popup:before {
+  top: 100%;
+  border: solid transparent;
+  content: ' ';
+  height: 0;
+  width: 0;
+  position: absolute;
+  pointer-events: none;
+}
+.ol-popup:after {
+  border-top-color: white;
+  border-width: 10px;
+  left: 48px;
+  margin-left: -10px;
+}
+.ol-popup:before {
+  border-top-color: #cccccc;
+  border-width: 11px;
+  left: 48px;
+  margin-left: -11px;
+}
+.ol-popup-closer {
+  text-decoration: none;
+  position: absolute;
+  top: 2px;
+  right: 8px;
+}
+.ol-popup-closer:after {
+  content: '✖';
+}
+
+.red-text {
+  color: red;
+  font-weight: bold;
 }
 </style>
