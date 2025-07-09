@@ -439,8 +439,14 @@ export default {
 <style scoped>
 .map-container {
   width: 100%;
-  height: 100vh; /* Take 100% of viewport height */
+  height: 100vh; /* Default for PC */
   background: #f0f0f0;
+}
+
+@media (max-width: 599px) {
+  .map-container {
+    height: 600px; /* Custom height for mobile */
+  }
 }
 
 .ol-popup {

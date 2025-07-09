@@ -1,10 +1,54 @@
 <template>
-  <q-page class="q-pa-md">
-    <div class="row q-gutter-md items-stretch" style="width: 100%">
+  <q-page class="lg:q-pa-md full-width">
+    <div class="row q-gutter-md items-stretch q-mx-sm">
       <!-- Overall Statistics Box -->
 
-      <div class="q-pa-sm full-width">
-        <div class="q-gutter-lg q-pa-md items-stretch" :class="$q.screen.lt.sm ? 'column' : 'row'">
+      <div class="full-width">
+        <div
+          class="q-gutter-sm lg:q-pa-md items-stretch"
+          :class="$q.screen.lt.sm ? 'column' : 'row'"
+        >
+          <!-- Shrinked column for settings button -->
+          <div
+            class="col-auto flex flex-center q-gutter-sm q-pa-md"
+            :style="{ backgroundColor: 'oklch(96.8% 0.007 247.896)' }"
+          >
+            <div class="column items-end">
+              <div class="row q-gutter-sm items-center q-mb-md">
+                <q-toggle v-model="showVideo" label="Live Feed" color="blue" />
+                <q-btn
+                  color="primary"
+                  icon="settings"
+                  @click="showSettings = true"
+                  label="Settings"
+                />
+              </div>
+              <div class="row q-gutter-sm items-center">
+                <q-select
+                  v-model="selectedVehicle"
+                  :options="vehicleOptions"
+                  label="Select Vehicle"
+                  emit-value
+                  map-options
+                  style="min-width: 200px"
+                />
+                <q-btn
+                  color="positive"
+                  label="Connect"
+                  @click="connectVehicle"
+                  :target="'_blank'"
+                  :href="`https://n8n.barangale.in/webhook/feed_nhai_nsv_data_${selectedVehicle}`"
+                  :disable="!selectedVehicle || mqttStore.isConnected"
+                />
+                <q-btn
+                  color="negative"
+                  label="Disconnect"
+                  @click="disconnectVehicle"
+                  :disable="!mqttStore.isConnected"
+                />
+              </div>
+            </div>
+          </div>
           <!-- Card 1 -->
           <div class="col">
             <q-card
@@ -167,48 +211,6 @@
               </q-card-section>
             </q-card>
           </div>
-
-          <!-- Shrinked column for settings button -->
-          <div
-            class="col-auto flex flex-center q-gutter-sm q-pa-md"
-            :style="{ backgroundColor: 'oklch(96.8% 0.007 247.896)' }"
-          >
-            <div class="column items-end">
-              <div class="row q-gutter-sm items-center q-mb-md">
-                <q-toggle v-model="showVideo" label="Live Feed" color="blue" />
-                <q-btn
-                  color="primary"
-                  icon="settings"
-                  @click="showSettings = true"
-                  label="Settings"
-                />
-              </div>
-              <div class="row q-gutter-sm items-center">
-                <q-select
-                  v-model="selectedVehicle"
-                  :options="vehicleOptions"
-                  label="Select Vehicle"
-                  emit-value
-                  map-options
-                  style="min-width: 200px"
-                />
-                <q-btn
-                  color="positive"
-                  label="Connect"
-                  @click="connectVehicle"
-                  :target="'_blank'"
-                  :href="`https://n8n.barangale.in/webhook/feed_nhai_nsv_data_${selectedVehicle}`"
-                  :disable="!selectedVehicle || mqttStore.isConnected"
-                />
-                <q-btn
-                  color="negative"
-                  label="Disconnect"
-                  @click="disconnectVehicle"
-                  :disable="!mqttStore.isConnected"
-                />
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -217,6 +219,10 @@
       class="video-overlay"
       :class="{ 'fullscreen-video': isFullscreen }"
       @click="toggleFullscreen"
+      :style="{
+        height: $q.screen.lt.sm ? '20%' : '41%',
+        width: $q.screen.lt.sm ? '34%' : '18%',
+      }"
     >
       <video ref="videoPlayer" class="full-width full-height" autoplay loop muted>
         <source src="/sample_30sec.mp4" type="video/mp4" />
@@ -224,10 +230,12 @@
       </video>
     </div>
 
-    <MapComponent
-      v-if="mqttStore.getPolylineCoordinates.length > 0"
-      :polylines="mqttStore.getPolylineCoordinates"
-    />
+    <div class="q-pa-sm">
+      <MapComponent
+        v-if="mqttStore.getPolylineCoordinates.length > 0"
+        :polylines="mqttStore.getPolylineCoordinates"
+      />
+    </div>
     <q-dialog v-model="showSettings" persistent>
       <q-card style="min-width: 350px">
         <q-card-section>
