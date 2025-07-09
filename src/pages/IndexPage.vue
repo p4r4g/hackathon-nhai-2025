@@ -4,7 +4,7 @@
       <!-- Overall Statistics Box -->
 
       <div class="q-pa-sm full-width">
-        <div class="row q-gutter-lg items-stretch">
+        <div class="q-gutter-lg items-stretch" :class="$q.screen.lt.sm ? 'column' : 'row'">
           <!-- Card 1 -->
           <div class="col">
             <q-card class="my-card q-pa-xs full-width fit self-stretch">

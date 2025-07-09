@@ -310,10 +310,6 @@ export default {
       return false // Prevent default link behavior
     },
     getPolylineStyle(feature) {
-      console.log(
-        'getPolylineStyle called, current zoom:',
-        this.mapView ? this.mapView.getZoom() : 'N/A',
-      )
       const laneData = feature.get('data')
       let color = 'lightblue' // Default to green (below threshold)
 
