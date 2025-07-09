@@ -20,6 +20,7 @@ import { Style, Stroke, Circle, Fill } from 'ol/style' // Import Circle and Fill
 import { fromLonLat } from 'ol/proj'
 import Overlay from 'ol/Overlay' // Import Overlay for popups
 import { useThresholdStore } from '../stores/threshold-store'
+import { useMqttStore } from '../stores/mqtt-store' // Import mqtt-store
 
 export default {
   name: 'MapComponent',
@@ -44,11 +45,13 @@ export default {
       popupContent: '', // Content to display in the popup
       isPopupOpen: false, // Track popup visibility
       thresholdStore: null,
+      mqttStore: null, // Add mqttStore to data
       mapViewChangeListener: null, // Store reference to the change:resolution listener
     }
   },
   mounted() {
     this.thresholdStore = useThresholdStore()
+    this.mqttStore = useMqttStore() // Initialize mqttStore
     this.initMap()
   },
   computed: {
@@ -71,6 +74,16 @@ export default {
         this.updatePolylines()
       },
       deep: true,
+    },
+    'mqttStore.isConnected': {
+      handler(newVal) {
+        if (newVal) {
+          // When connected, reset zoom to 5
+          this.mapView.setZoom(10)
+          this.userInteractedWithZoom = false // Reset flag to allow initial auto-zoom
+        }
+      },
+      immediate: true, // Run handler immediately on component mount
     },
   },
   methods: {
