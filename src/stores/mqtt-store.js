@@ -1,12 +1,12 @@
 import { defineStore } from 'pinia'
+import mqtt from 'mqtt'
+import { useThresholdStore } from './threshold-store'
 
 export const useMqttStore = defineStore('mqtt', {
   state: () => ({
-    // Initialize polylineData as an array of 8 empty arrays, one for each lane
-    // L1, L2, L3, L4, R1, R2, R3, R4
     polylineData: Array(8)
       .fill(null)
-      .map(() => []), // Initialize as an array of empty arrays for segments
+      .map(() => []),
     totalSegmentsReceived: 0,
     laneStats: Array(8)
       .fill(null)
@@ -15,8 +15,70 @@ export const useMqttStore = defineStore('mqtt', {
         segmentsWithinThreshold: 0,
         percentageWithinThreshold: 0,
       })),
+    mqttClient: null,
+    isConnected: false,
   }),
   actions: {
+    clearStore() {
+      this.polylineData = Array(8)
+        .fill(null)
+        .map(() => [])
+      this.totalSegmentsReceived = 0
+      this.laneStats = Array(8)
+        .fill(null)
+        .map(() => ({
+          totalSegments: 0,
+          segmentsWithinThreshold: 0,
+          percentageWithinThreshold: 0,
+        }))
+    },
+    connectMqtt() {
+      if (this.mqttClient) return // Already connected
+      const options = {
+        host: '740a2425c86847e98484890c67f43046.s1.eu.hivemq.cloud',
+        path: '/mqtt',
+        port: 8884,
+        protocol: 'wss',
+        username: 'nhai_hackathon_sub',
+        password: '8aEpyQT9YC97^Xus',
+      }
+      this.mqttClient = mqtt.connect(options)
+      this.mqttClient.on('connect', () => {
+        this.isConnected = true
+        this.mqttClient.subscribe('/nhai/nvsr/live', (err) => {
+          if (!err) {
+            console.log('Subscribed to polyline/update')
+          } else {
+            console.error('Subscription error:', err)
+          }
+        })
+      })
+      this.mqttClient.on('message', (topic, message) => {
+        try {
+          const parsedData = JSON.parse(message.toString())
+          const thresholds = useThresholdStore()
+          this.addMqttData(parsedData, {
+            roughnessThreshold: thresholds.roughnessThreshold,
+            rutDepthThreshold: thresholds.rutDepthThreshold,
+            crackingThreshold: thresholds.crackingThreshold,
+            ravellingThreshold: thresholds.ravellingThreshold,
+          })
+        } catch (e) {
+          console.error('Failed to parse MQTT message:', e)
+        }
+      })
+      this.mqttClient.on('error', (err) => {
+        console.error('MQTT error:', err)
+      })
+    },
+    disconnectMqtt() {
+      if (this.mqttClient) {
+        this.mqttClient.end()
+        this.mqttClient = null
+        this.isConnected = false
+        console.log('Disconnected from MQTT broker')
+      }
+    },
     addMqttData(data, thresholds) {
       this.totalSegmentsReceived++ // Increment total messages received
       const laneKeys = [
