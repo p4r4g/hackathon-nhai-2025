@@ -174,13 +174,15 @@
             :style="{ backgroundColor: 'oklch(96.8% 0.007 247.896)' }"
           >
             <div class="column items-end">
-              <q-btn
-                class="q-mb-md"
-                color="primary"
-                icon="settings"
-                @click="showSettings = true"
-                label="Settings"
-              />
+              <div class="row q-gutter-sm items-center q-mb-md">
+                <q-toggle v-model="showVideo" label="Live Feed" color="blue" />
+                <q-btn
+                  color="primary"
+                  icon="settings"
+                  @click="showSettings = true"
+                  label="Settings"
+                />
+              </div>
               <div class="row q-gutter-sm items-center">
                 <q-select
                   v-model="selectedVehicle"
@@ -210,6 +212,18 @@
         </div>
       </div>
     </div>
+    <div
+      v-if="showVideoOverlay && showVideo && mqttStore.isConnected"
+      class="video-overlay"
+      :class="{ 'fullscreen-video': isFullscreen }"
+      @click="toggleFullscreen"
+    >
+      <video ref="videoPlayer" class="full-width full-height" autoplay loop muted>
+        <source src="/sample_30sec.mp4" type="video/mp4" />
+        Your browser does not support the video tag.
+      </video>
+    </div>
+
     <MapComponent
       v-if="mqttStore.getPolylineCoordinates.length > 0"
       :polylines="mqttStore.getPolylineCoordinates"
@@ -262,10 +276,18 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { useQuasar } from 'quasar'
 import MapComponent from 'src/components/MapComponent.vue'
 import { useMqttStore } from 'src/stores/mqtt-store'
 import { useThresholdStore } from 'src/stores/threshold-store'
+
+const $q = useQuasar()
+
+const showVideo = ref(false)
+const showVideoOverlay = ref(true)
+const isFullscreen = ref(false)
+const videoPlayer = ref(null)
 
 const mqttStore = useMqttStore()
 const thresholdStore = useThresholdStore()
@@ -358,4 +380,72 @@ onMounted(() => {
 onUnmounted(() => {
   mqttStore.disconnectMqtt()
 })
+
+watch(
+  () => mqttStore.isConnected,
+  (newVal) => {
+    if (!newVal && videoPlayer.value) {
+      videoPlayer.value.pause()
+    }
+  },
+)
+
+function toggleFullscreen() {
+  if (videoPlayer.value) {
+    if (isFullscreen.value) {
+      if (document.exitFullscreen) {
+        document.exitFullscreen()
+      } else if (document.webkitExitFullscreen) {
+        /* Safari, Chrome and Opera */
+        document.webkitExitFullscreen()
+      } else if (document.msExitFullscreen) {
+        /* IE/Edge */
+        document.msExitFullscreen()
+      }
+    } else {
+      if (videoPlayer.value.requestFullscreen) {
+        videoPlayer.value.requestFullscreen()
+      } else if (videoPlayer.value.webkitRequestFullscreen) {
+        /* Safari, Chrome and Opera */
+        videoPlayer.value.webkitRequestFullscreen()
+      } else if (videoPlayer.value.msRequestFullscreen) {
+        /* IE/Edge */
+        videoPlayer.value.msRequestFullscreen()
+      }
+    }
+    isFullscreen.value = !isFullscreen.value
+  }
+}
 </script>
+
+<style scoped>
+.video-overlay {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 310px; /* Default for larger screens */
+  height: 400px; /* Default for larger screens (16:9 aspect ratio) */
+  z-index: 1000;
+  background-color: black;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+@media (max-width: 600px) {
+  .video-overlay {
+    width: 90vw; /* Adjust for mobile screens */
+    height: calc(90vw * 9 / 16); /* Maintain aspect ratio */
+    bottom: 10px;
+    right: 10px;
+  }
+}
+
+.fullscreen-video {
+  width: 100vw !important;
+  height: 100vh !important;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+}
+</style>
