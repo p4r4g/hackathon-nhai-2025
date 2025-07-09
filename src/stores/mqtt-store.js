@@ -32,22 +32,48 @@ export const useMqttStore = defineStore('mqtt', {
           percentageWithinThreshold: 0,
         }))
     },
-    connectMqtt() {
-      if (this.mqttClient) return // Already connected
+    connectMqtt(vehicleType) {
+      if (this.mqttClient) {
+        this.disconnectMqtt() // Disconnect existing client if any
+      }
+
+      let host = ''
+      let username = ''
+      let password = ''
+      let topic = ''
+
+      if (vehicleType === 'small_feed') {
+        // call url https://n8n.barangale.in/webhook/feed_nhai_nsv_data_smallset
+        host = '740a2425c86847e98484890c67f43046.s1.eu.hivemq.cloud'
+        username = 'nhai_hackathon_sub'
+        password = '8aEpyQT9YC97^Xus'
+        topic = '/nhai/nvsr/live'
+      } else if (vehicleType === 'large_feed') {
+        host = '740a2425c86847e98484890c67f43046.s1.eu.hivemq.cloud' // Assuming same host for now
+        username = 'nhai_hackathon_sub' // Assuming same username for now
+        password = '8aEpyQT9YC97^Xus' // Assuming same password for now
+        topic = '/nhai/nvsr/live' // Assuming same topic for now, adjust if needed
+      } else {
+        console.error('Invalid vehicle type:', vehicleType)
+        return
+      }
+
       const options = {
-        host: '740a2425c86847e98484890c67f43046.s1.eu.hivemq.cloud',
+        host: host,
         path: '/mqtt',
         port: 8884,
         protocol: 'wss',
-        username: 'nhai_hackathon_sub',
-        password: '8aEpyQT9YC97^Xus',
+        username: username,
+        password: password,
       }
+
       this.mqttClient = mqtt.connect(options)
       this.mqttClient.on('connect', () => {
         this.isConnected = true
-        this.mqttClient.subscribe('/nhai/nvsr/live', (err) => {
+        this.clearStore() // Reset buffer on connect
+        this.mqttClient.subscribe(topic, (err) => {
           if (!err) {
-            console.log('Subscribed to polyline/update')
+            console.log(`Subscribed to ${topic}`)
           } else {
             console.error('Subscription error:', err)
           }

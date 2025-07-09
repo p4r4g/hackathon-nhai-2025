@@ -1,39 +1,41 @@
 <template>
   <q-page class="q-pa-md">
-    <q-row class="q-gutter-md items-stretch" style="width: 100%">
+    <div class="row q-gutter-md items-stretch" style="width: 100%">
       <!-- Overall Statistics Box -->
-      <q-col xs="12" md="auto" class="flex" style="max-width: 260px; min-width: 220px">
-        <q-card class="my-card q-pa-xs full-width">
-          <q-card-section class="q-pa-sm">
-            <div class="text-h6">Overall Statistics</div>
-            <div class="text-subtitle2">
-              Total Segments Received: {{ mqttStore.getTotalSegmentsReceived }}
-            </div>
-          </q-card-section>
-        </q-card>
-      </q-col>
 
-      <!-- Left Lanes (L1-L4) Split into Two Columns -->
-      <q-col xs="12" md="auto" class="flex" style="max-width: 260px; min-width: 220px">
-        <q-card class="my-card q-pa-xs full-width">
-          <q-card-section class="q-pa-sm">
-            <div class="text-h6">Left Lanes (L1-L4)</div>
-            <q-row>
-              <q-col cols="6">
+      <div class="q-pa-sm full-width">
+        <div class="row q-gutter-lg items-stretch">
+          <!-- Card 1 -->
+          <div class="col">
+            <q-card class="my-card q-pa-xs full-width fit self-stretch">
+              <q-card-section class="q-pa-sm">
+                <div class="text-h6">Overall Statistics</div>
+                <div class="text-subtitle2">
+                  Total Segments Received: {{ mqttStore.getTotalSegmentsReceived }}
+                </div>
+              </q-card-section>
+            </q-card>
+          </div>
+
+          <!-- Card 2 -->
+          <div class="col">
+            <q-card class="my-card q-pa-xs full-width fit self-stretch">
+              <q-card-section class="q-pa-sm">
+                <div class="text-h6">Left Lanes (L1–L4)</div>
                 <div
-                  v-for="(lane, index) in leftLaneStats.slice(0, 2)"
-                  :key="'l1l2-' + index"
+                  v-for="(lane, index) in leftLaneStats"
+                  :key="index"
                   class="q-mb-xs row items-center no-wrap"
                   style="gap: 6px"
                 >
-                  <span class="text-caption" style="font-size: 12px; min-width: 38px">{{
-                    lanePrefixes[index]
-                  }}</span>
-                  <span class="text-caption" style="font-size: 12px; min-width: 60px"
-                    >{{ lane.percentageWithinThreshold.toFixed(2) }}% ({{
+                  <span class="text-caption" style="font-size: 12px; min-width: 38px">
+                    {{ lanePrefixes[index] }}
+                  </span>
+                  <span class="text-caption" style="font-size: 12px; min-width: 60px">
+                    {{ lane.percentageWithinThreshold.toFixed(2) }}% ({{
                       lane.segmentsWithinThreshold
-                    }}/{{ lane.totalSegments }})</span
-                  >
+                    }}/{{ lane.totalSegments }})
+                  </span>
                   <q-linear-progress
                     :value="lane.percentageWithinThreshold / 100"
                     :color="getProgressBarColor(lane.percentageWithinThreshold)"
@@ -41,22 +43,29 @@
                     style="height: 8px; min-width: 60px; flex: 1"
                   />
                 </div>
-              </q-col>
-              <q-col cols="6">
+              </q-card-section>
+            </q-card>
+          </div>
+
+          <!-- Card 3 -->
+          <div class="col">
+            <q-card class="my-card q-pa-xs full-width fit self-stretch">
+              <q-card-section class="q-pa-sm">
+                <div class="text-h6">Right Lanes (R1–R4)</div>
                 <div
-                  v-for="(lane, index) in leftLaneStats.slice(2, 4)"
-                  :key="'l3l4-' + index"
+                  v-for="(lane, index) in rightLaneStats"
+                  :key="index"
                   class="q-mb-xs row items-center no-wrap"
                   style="gap: 6px"
                 >
-                  <span class="text-caption" style="font-size: 12px; min-width: 38px">{{
-                    lanePrefixes[index + 2]
-                  }}</span>
-                  <span class="text-caption" style="font-size: 12px; min-width: 60px"
-                    >{{ lane.percentageWithinThreshold.toFixed(2) }}% ({{
+                  <span class="text-caption" style="font-size: 12px; min-width: 38px">
+                    {{ lanePrefixes[index + 4] }}
+                  </span>
+                  <span class="text-caption" style="font-size: 12px; min-width: 60px">
+                    {{ lane.percentageWithinThreshold.toFixed(2) }}% ({{
                       lane.segmentsWithinThreshold
-                    }}/{{ lane.totalSegments }})</span
-                  >
+                    }}/{{ lane.totalSegments }})
+                  </span>
                   <q-linear-progress
                     :value="lane.percentageWithinThreshold / 100"
                     :color="getProgressBarColor(lane.percentageWithinThreshold)"
@@ -64,53 +73,49 @@
                     style="height: 8px; min-width: 60px; flex: 1"
                   />
                 </div>
-              </q-col>
-            </q-row>
-          </q-card-section>
-        </q-card>
-      </q-col>
+              </q-card-section>
+            </q-card>
+          </div>
 
-      <!-- Right Lanes (R1-R4) Box -->
-      <q-col md="auto" class="flex" style="max-width: 260px; min-width: 220px">
-        <q-card class="my-card q-pa-xs full-width">
-          <q-card-section class="q-pa-sm">
-            <div class="text-h6">Right Lanes (R1-R4)</div>
-            <div
-              v-for="(lane, index) in rightLaneStats"
-              :key="index"
-              class="col-grow"
-              style="gap: 0px"
-            >
-              <span class="text-caption" style="font-size: 12px; min-width: 38px">{{
-                lanePrefixes[index + 4]
-              }}</span>
-              <span class="text-caption" style="font-size: 12px; min-width: 60px"
-                >{{ lane.percentageWithinThreshold.toFixed(2) }}% ({{
-                  lane.segmentsWithinThreshold
-                }}/{{ lane.totalSegments }})</span
-              >
-              <q-linear-progress
-                :value="lane.percentageWithinThreshold / 100"
-                :color="getProgressBarColor(lane.percentageWithinThreshold)"
-                track-color="grey-3"
-                style="height: 8px; min-width: 60px; flex: 1"
+          <!-- Shrinked column for settings button -->
+          <div class="col-auto flex flex-center q-gutter-sm">
+            <div class="column items-end">
+              <q-btn
+                class="q-mb-md"
+                color="primary"
+                icon="settings"
+                @click="showSettings = true"
+                label="Settings"
               />
+              <div class="row">
+                <q-select
+                  v-model="selectedVehicle"
+                  :options="vehicleOptions"
+                  label="Select Vehicle"
+                  emit-value
+                  map-options
+                  style="min-width: 200px"
+                />
+                <q-btn
+                  color="positive"
+                  label="Connect"
+                  @click="connectVehicle"
+                  :target="'_blank'"
+                  :href="`https://n8n.barangale.in/webhook/feed_nhai_nsv_data_${selectedVehicle}`"
+                  :disable="!selectedVehicle || mqttStore.isConnected"
+                />
+                <q-btn
+                  color="negative"
+                  label="Disconnect"
+                  @click="disconnectVehicle"
+                  :disable="!mqttStore.isConnected"
+                />
+              </div>
             </div>
-          </q-card-section>
-        </q-card>
-      </q-col>
-
-      <!-- Settings Button -->
-      <q-col xs="12" md="auto" class="flex flex-center" style="min-width: 180px">
-        <q-btn
-          color="primary"
-          icon="settings"
-          label="Threshold Settings"
-          @click="showSettings = true"
-          class="q-mb-md"
-        />
-      </q-col>
-    </q-row>
+          </div>
+        </div>
+      </div>
+    </div>
     <MapComponent
       v-if="mqttStore.getPolylineCoordinates.length > 0"
       :polylines="mqttStore.getPolylineCoordinates"
@@ -177,6 +182,22 @@ const rutDepthThreshold = ref(thresholdStore.rutDepthThreshold)
 const crackingThreshold = ref(thresholdStore.crackingThreshold)
 const ravellingThreshold = ref(thresholdStore.ravellingThreshold)
 
+const selectedVehicle = ref(null)
+const vehicleOptions = [
+  { label: 'GJ01AA1111 (small feed)', value: 'small_feed' },
+  { label: 'GJ01BB2222 (large feed)', value: 'large_feed' },
+]
+
+const connectVehicle = () => {
+  if (selectedVehicle.value) {
+    mqttStore.connectMqtt(selectedVehicle.value)
+  }
+}
+
+const disconnectVehicle = () => {
+  mqttStore.disconnectMqtt()
+}
+
 function saveSettings() {
   thresholdStore.setThresholds({
     roughnessThreshold: roughnessThreshold.value,
@@ -203,7 +224,7 @@ const leftLaneStats = computed(() => mqttStore.getLaneStats.slice(0, 4))
 const rightLaneStats = computed(() => mqttStore.getLaneStats.slice(4, 8))
 
 onMounted(() => {
-  mqttStore.connectMqtt()
+  // No automatic connection on mount, user will connect manually
 })
 
 onUnmounted(() => {
