@@ -251,7 +251,23 @@ export default {
           const lanePrefixes = ['L1', 'L2', 'L3', 'L4', 'R1', 'R2', 'R3', 'R4']
           const laneName = lanePrefixes[laneIndex] || 'Unknown Lane'
 
-          let content = `<b>Lane: ${laneName}</b><br><b>Segment Data:</b><br>`
+          // Determine the background color based on the segment's condition
+          let popupBackgroundColor = 'white' // Default to white
+          if (
+            data.roughnessBI > this.roughnessThreshold ||
+            data.rutDepth > this.rutDepthThreshold ||
+            data.crackArea > this.crackingThreshold ||
+            data.ravellingArea > this.ravellingThreshold
+          ) {
+            popupBackgroundColor = '#ffe0b2' // Light orange for segments exceeding threshold
+          } else {
+            popupBackgroundColor = '#e0ffe0' // Light green for segments within threshold
+          }
+
+          // Apply the background color to the popup element
+          this.$refs.popup.style.backgroundColor = popupBackgroundColor
+
+          let content = `<div class="popup-header"><b>Lane: ${laneName}</b></div><div class="popup-content">`
           const thresholdMap = {
             roughnessBI: 'roughnessThreshold',
             rutDepth: 'rutDepthThreshold',
@@ -281,7 +297,9 @@ export default {
             }
             console.log(`Current content for ${key}: ${content}`)
           }
-          this.popupContent = content
+          this.popupContent =
+            content +
+            `<video width="320" height="240" controls><source src="/sample_30sec.mp4" type="video/mp4">Your browser does not support the video tag.</video>`
           this.popup.setPosition(event.coordinate)
           this.isPopupOpen = true // Set popup open flag
           console.log('Popup opened. isPopupOpen:', this.isPopupOpen)
@@ -459,5 +477,37 @@ export default {
 .red-text {
   color: red;
   font-weight: bold;
+}
+</style>
+
+<style>
+.popup-header {
+  background-color: #f0f0f0;
+  padding: 8px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #ccc;
+  font-size: 1.1em;
+  color: #333;
+}
+
+.popup-content {
+  padding: 5px 0;
+  line-height: 1.6;
+}
+
+.popup-content b {
+  color: #555;
+}
+
+.popup-content span.red-text {
+  color: #d9534f; /* A slightly darker red for better readability */
+  font-weight: bold;
+}
+
+.ol-popup video {
+  margin-top: 15px;
+  border-radius: 5px;
+  width: 100%; /* Make video responsive within popup */
+  height: auto;
 }
 </style>

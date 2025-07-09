@@ -4,14 +4,99 @@
       <!-- Overall Statistics Box -->
 
       <div class="q-pa-sm full-width">
-        <div class="q-gutter-lg items-stretch" :class="$q.screen.lt.sm ? 'column' : 'row'">
+        <div class="q-gutter-lg q-pa-md items-stretch" :class="$q.screen.lt.sm ? 'column' : 'row'">
           <!-- Card 1 -->
           <div class="col">
-            <q-card class="my-card q-pa-xs full-width fit self-stretch">
+            <q-card
+              class="my-card q-pa-xs full-width fit self-stretch"
+              :style="{ backgroundColor: 'oklch(96.8% 0.007 247.896)' }"
+            >
               <q-card-section class="q-pa-sm">
-                <div class="text-h6">Overall Statistics</div>
+                <div class="text-h6">
+                  Overall Statistics
+                  <span class="text-subtitle2">[ QoS: {{ mqttStore.getQos }} ]</span>
+                </div>
                 <div class="text-subtitle2">
                   Total Segments Received: {{ mqttStore.getTotalSegmentsReceived }}
+                </div>
+                <div class="text-subtitle2">
+                  Message Delivery Rate: {{ mqttStore.getDeliveryRate.toFixed(2) }}%
+                </div>
+
+                <div class="q-mb-xs row items-center no-wrap" style="gap: 6px">
+                  <span class="text-caption" style="font-size: 12px; min-width: 38px">
+                    All Lanes
+                  </span>
+                  <span class="text-caption" style="font-size: 12px; min-width: 60px">
+                    {{
+                      overallTotalStats.totalSegments === 0
+                        ? 'N/A'
+                        : overallTotalStats.percentageWithinThreshold.toFixed(2) + '%'
+                    }}
+                    ({{ overallTotalStats.segmentsWithinThreshold }}/{{
+                      overallTotalStats.totalSegments
+                    }})
+                  </span>
+                  <q-linear-progress
+                    :value="
+                      overallTotalStats.totalSegments === 0
+                        ? 0
+                        : overallTotalStats.percentageWithinThreshold / 100
+                    "
+                    :color="getProgressBarColor(overallTotalStats.percentageWithinThreshold)"
+                    track-color="grey-3"
+                    style="height: 8px; min-width: 60px; flex: 1"
+                  />
+                </div>
+                <div class="q-mb-xs row items-center no-wrap" style="gap: 6px">
+                  <span class="text-caption" style="font-size: 12px; min-width: 38px">
+                    Left Lanes
+                  </span>
+                  <span class="text-caption" style="font-size: 12px; min-width: 60px">
+                    {{
+                      overallLeftLaneStats.totalSegments === 0
+                        ? 'N/A'
+                        : overallLeftLaneStats.percentageWithinThreshold.toFixed(2) + '%'
+                    }}
+                    ({{ overallLeftLaneStats.segmentsWithinThreshold }}/{{
+                      overallLeftLaneStats.totalSegments
+                    }})
+                  </span>
+                  <q-linear-progress
+                    :value="
+                      overallLeftLaneStats.totalSegments === 0
+                        ? 0
+                        : overallLeftLaneStats.percentageWithinThreshold / 100
+                    "
+                    :color="getProgressBarColor(overallLeftLaneStats.percentageWithinThreshold)"
+                    track-color="grey-3"
+                    style="height: 8px; min-width: 60px; flex: 1"
+                  />
+                </div>
+                <div class="q-mb-xs row items-center no-wrap" style="gap: 6px">
+                  <span class="text-caption" style="font-size: 12px; min-width: 38px">
+                    Right Lanes
+                  </span>
+                  <span class="text-caption" style="font-size: 12px; min-width: 60px">
+                    {{
+                      overallRightLaneStats.totalSegments === 0
+                        ? 'N/A'
+                        : overallRightLaneStats.percentageWithinThreshold.toFixed(2) + '%'
+                    }}
+                    ({{ overallRightLaneStats.segmentsWithinThreshold }}/{{
+                      overallRightLaneStats.totalSegments
+                    }})
+                  </span>
+                  <q-linear-progress
+                    :value="
+                      overallRightLaneStats.totalSegments === 0
+                        ? 0
+                        : overallRightLaneStats.percentageWithinThreshold / 100
+                    "
+                    :color="getProgressBarColor(overallRightLaneStats.percentageWithinThreshold)"
+                    track-color="grey-3"
+                    style="height: 8px; min-width: 60px; flex: 1"
+                  />
                 </div>
               </q-card-section>
             </q-card>
@@ -19,7 +104,10 @@
 
           <!-- Card 2 -->
           <div class="col">
-            <q-card class="my-card q-pa-xs full-width fit self-stretch">
+            <q-card
+              class="my-card q-pa-xs full-width fit self-stretch"
+              :style="{ backgroundColor: 'oklch(96.8% 0.007 247.896)' }"
+            >
               <q-card-section class="q-pa-sm">
                 <div class="text-h6">Left Lanes (L1–L4)</div>
                 <div
@@ -49,7 +137,10 @@
 
           <!-- Card 3 -->
           <div class="col">
-            <q-card class="my-card q-pa-xs full-width fit self-stretch">
+            <q-card
+              class="my-card q-pa-xs full-width fit self-stretch"
+              :style="{ backgroundColor: 'oklch(96.8% 0.007 247.896)' }"
+            >
               <q-card-section class="q-pa-sm">
                 <div class="text-h6">Right Lanes (R1–R4)</div>
                 <div
@@ -78,7 +169,10 @@
           </div>
 
           <!-- Shrinked column for settings button -->
-          <div class="col-auto flex flex-center q-gutter-sm">
+          <div
+            class="col-auto flex flex-center q-gutter-sm q-pa-md"
+            :style="{ backgroundColor: 'oklch(96.8% 0.007 247.896)' }"
+          >
             <div class="column items-end">
               <q-btn
                 class="q-mb-md"
@@ -87,7 +181,7 @@
                 @click="showSettings = true"
                 label="Settings"
               />
-              <div class="row">
+              <div class="row q-gutter-sm items-center">
                 <q-select
                   v-model="selectedVehicle"
                   :options="vehicleOptions"
@@ -177,10 +271,44 @@ const mqttStore = useMqttStore()
 const thresholdStore = useThresholdStore()
 
 const showSettings = ref(false)
+
 const roughnessThreshold = ref(thresholdStore.roughnessThreshold)
 const rutDepthThreshold = ref(thresholdStore.rutDepthThreshold)
 const crackingThreshold = ref(thresholdStore.crackingThreshold)
 const ravellingThreshold = ref(thresholdStore.ravellingThreshold)
+
+const overallLeftLaneStats = computed(() => {
+  const totalSegments = leftLaneStats.value.reduce((sum, lane) => sum + lane.totalSegments, 0)
+  const segmentsWithinThreshold = leftLaneStats.value.reduce(
+    (sum, lane) => sum + lane.segmentsWithinThreshold,
+    0,
+  )
+  const percentageWithinThreshold =
+    totalSegments === 0 ? 0 : (segmentsWithinThreshold / totalSegments) * 100
+  return { totalSegments, segmentsWithinThreshold, percentageWithinThreshold }
+})
+
+const overallRightLaneStats = computed(() => {
+  const totalSegments = rightLaneStats.value.reduce((sum, lane) => sum + lane.totalSegments, 0)
+  const segmentsWithinThreshold = rightLaneStats.value.reduce(
+    (sum, lane) => sum + lane.segmentsWithinThreshold,
+    0,
+  )
+  const percentageWithinThreshold =
+    totalSegments === 0 ? 0 : (segmentsWithinThreshold / totalSegments) * 100
+  return { totalSegments, segmentsWithinThreshold, percentageWithinThreshold }
+})
+
+const overallTotalStats = computed(() => {
+  const totalSegments = mqttStore.getLaneStats.reduce((sum, lane) => sum + lane.totalSegments, 0)
+  const segmentsWithinThreshold = mqttStore.getLaneStats.reduce(
+    (sum, lane) => sum + lane.segmentsWithinThreshold,
+    0,
+  )
+  const percentageWithinThreshold =
+    totalSegments === 0 ? 0 : (segmentsWithinThreshold / totalSegments) * 100
+  return { totalSegments, segmentsWithinThreshold, percentageWithinThreshold }
+})
 
 const selectedVehicle = ref(null)
 const vehicleOptions = [

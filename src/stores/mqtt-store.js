@@ -8,6 +8,7 @@ export const useMqttStore = defineStore('mqtt', {
       .fill(null)
       .map(() => []),
     totalSegmentsReceived: 0,
+    totalMqttMessagesReceived: 0, // New state for total messages received
     laneStats: Array(8)
       .fill(null)
       .map(() => ({
@@ -17,6 +18,8 @@ export const useMqttStore = defineStore('mqtt', {
       })),
     mqttClient: null,
     isConnected: false,
+    qos: 1, // Default QoS level (0, 1, or 2)
+    qosPercentage: 50, // Default QoS percentage (0-100)
   }),
   actions: {
     clearStore() {
@@ -24,6 +27,7 @@ export const useMqttStore = defineStore('mqtt', {
         .fill(null)
         .map(() => [])
       this.totalSegmentsReceived = 0
+      this.totalMqttMessagesReceived = 0 // Reset total MQTT messages received
       this.laneStats = Array(8)
         .fill(null)
         .map(() => ({
@@ -71,15 +75,16 @@ export const useMqttStore = defineStore('mqtt', {
       this.mqttClient.on('connect', () => {
         this.isConnected = true
         this.clearStore() // Reset buffer on connect
-        this.mqttClient.subscribe(topic, (err) => {
+        this.mqttClient.subscribe(topic, { qos: this.qos }, (err) => {
           if (!err) {
-            console.log(`Subscribed to ${topic}`)
+            console.log(`Subscribed to ${topic} with QoS ${this.qos}`)
           } else {
             console.error('Subscription error:', err)
           }
         })
       })
       this.mqttClient.on('message', (topic, message) => {
+        this.totalMqttMessagesReceived++ // Increment total MQTT messages received
         try {
           const parsedData = JSON.parse(message.toString())
           const thresholds = useThresholdStore()
@@ -96,6 +101,17 @@ export const useMqttStore = defineStore('mqtt', {
       this.mqttClient.on('error', (err) => {
         console.error('MQTT error:', err)
       })
+    },
+    setQosFromPercentage(percentage) {
+      this.qosPercentage = Math.max(0, Math.min(100, percentage)) // Ensure percentage is between 0 and 100
+      if (this.qosPercentage <= 33) {
+        this.qos = 0
+      } else if (this.qosPercentage <= 66) {
+        this.qos = 1
+      } else {
+        this.qos = 2
+      }
+      console.log(`QoS set to ${this.qos} based on percentage ${this.qosPercentage}%`)
     },
     disconnectMqtt() {
       if (this.mqttClient) {
@@ -231,5 +247,13 @@ export const useMqttStore = defineStore('mqtt', {
     getPolylineCoordinates: (state) => state.polylineData,
     getLaneStats: (state) => state.laneStats,
     getTotalSegmentsReceived: (state) => state.totalSegmentsReceived,
+    getQos: (state) => state.qos,
+    getQosPercentage: (state) => state.qosPercentage,
+    getDeliveryRate: (state) => {
+      if (state.totalMqttMessagesReceived === 0) {
+        return 0
+      }
+      return (state.totalSegmentsReceived / state.totalMqttMessagesReceived) * 100
+    },
   },
 })
