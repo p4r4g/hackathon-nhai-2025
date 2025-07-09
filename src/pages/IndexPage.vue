@@ -13,8 +13,8 @@
             class="col-auto flex flex-center q-gutter-sm q-pa-md"
             :style="{ backgroundColor: 'oklch(96.8% 0.007 247.896)' }"
           >
-            <div class="column items-end">
-              <div class="row q-gutter-sm items-center q-mb-md">
+            <div class="column items-center full-width">
+              <div class="q-gutter-sm items-center justify-between">
                 <q-toggle v-model="showVideo" label="Live Feed" color="blue" />
                 <q-btn
                   color="primary"
@@ -23,7 +23,7 @@
                   label="Settings"
                 />
               </div>
-              <div class="row q-gutter-sm items-center">
+              <div class="q-gutter-sm">
                 <q-select
                   v-model="selectedVehicle"
                   :options="vehicleOptions"
@@ -292,7 +292,7 @@ import { useThresholdStore } from 'src/stores/threshold-store'
 
 const $q = useQuasar()
 
-const showVideo = ref(false)
+const showVideo = ref(true)
 const showVideoOverlay = ref(true)
 const isFullscreen = ref(false)
 const videoPlayer = ref(null)
